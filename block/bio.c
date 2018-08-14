@@ -1725,6 +1725,16 @@ static inline bool bio_remaining_done(struct bio *bio)
 	return false;
 }
 
+#ifdef CONFIG_BLK_CGROUP
+static inline void bio_record_latency(struct bio *bio)
+{
+	if (bio->bi_blkg && bio->bi_blkg->parent)
+		blkg_record_latency(bio);
+}
+#else
+static inline void bio_record_latency(struct bio *bio) { }
+#endif
+
 /**
  * bio_endio - end I/O on a bio
  * @bio:	bio
@@ -1746,6 +1756,8 @@ again:
 		return;
 	if (!bio_integrity_endio(bio))
 		return;
+
+	bio_record_latency(bio);
 
 	if (bio->bi_disk)
 		rq_qos_done_bio(bio->bi_disk->queue, bio);

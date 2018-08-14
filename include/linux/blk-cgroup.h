@@ -133,6 +133,11 @@ struct blkcg_gq {
 
 	struct blkg_policy_data		*pd[BLKCG_MAX_POLS];
 
+	struct blk_rq_stat __percpu	*rq_stat;
+	struct blk_rq_stat		last_rq_stat;
+	atomic64_t			win_start;
+	u64				lat_avg;
+
 	struct rcu_head			rcu_head;
 
 	atomic_t			use_delay;
@@ -837,6 +842,8 @@ static inline void blkcg_clear_delay(struct blkcg_gq *blkg)
 	}
 }
 
+void blkg_record_latency(struct bio *bio);
+
 void blkcg_add_delay(struct blkcg_gq *blkg, u64 now, u64 delta);
 void blkcg_schedule_throttle(struct request_queue *q, bool use_memdelay);
 void blkcg_maybe_throttle_current(void);
@@ -858,6 +865,8 @@ struct blkcg_policy {
 };
 
 #define blkcg_root_css	((struct cgroup_subsys_state *)ERR_PTR(-EINVAL))
+
+static inline void blkg_record_latency(struct bio *bio) {}
 
 static inline void blkcg_maybe_throttle_current(void) { }
 static inline bool blk_cgroup_congested(void) { return false; }
