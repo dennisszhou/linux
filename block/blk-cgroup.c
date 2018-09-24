@@ -33,6 +33,9 @@
 
 #define MAX_KEY_LEN 100
 
+atomic_t _blkg_count = ATOMIC_INIT(0);
+atomic_t _blkcg_count = ATOMIC_INIT(0);
+
 /*
  * This constant is used to fake the fixed-point moving average calculation
  * just like load average for blkg->lat_avg.  The call to CALC_LOAD folds
@@ -111,6 +114,8 @@ static void __blkg_release(struct rcu_head *rcu)
 	wb_congested_put(blkg->wb_congested);
 
 	blkg_free(blkg);
+
+	atomic_dec(&_blkg_count);
 }
 
 /*
@@ -256,6 +261,8 @@ static struct blkcg_gq *blkg_create(struct blkcg *blkcg,
 	}
 	blkg = new_blkg;
 	blkg->wb_congested = wb_congested;
+
+	atomic_inc(&_blkg_count);
 
 	/* link parent */
 	if (blkcg_parent(blkcg)) {
@@ -1167,6 +1174,9 @@ static void blkcg_css_free(struct cgroup_subsys_state *css)
 	mutex_unlock(&blkcg_pol_mutex);
 
 	kfree(blkcg);
+	atomic_dec(&_blkcg_count);
+	printk(KERN_INFO "dennisz: css_free: %d %d", atomic_read(&_blkcg_count),
+	       atomic_read(&_blkg_count));
 }
 
 static struct cgroup_subsys_state *
@@ -1223,6 +1233,8 @@ blkcg_css_alloc(struct cgroup_subsys_state *parent_css)
 	list_add_tail(&blkcg->all_blkcgs_node, &all_blkcgs);
 
 	mutex_unlock(&blkcg_pol_mutex);
+
+	atomic_inc(&_blkcg_count);
 	return &blkcg->css;
 
 free_pd_blkcg:
